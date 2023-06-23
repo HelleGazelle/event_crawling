@@ -3,7 +3,7 @@ import re
 import requests
 import csv
 
-field_name = ['id', 'eventname', 'location', 'organization', 'date', 'event_details']
+field_name = ['id', 'eventname', 'location', 'organization', 'date', 'event_details', 'gps_latitude', 'gps_longitude']
 
 
 crawled_event_ids = []
@@ -39,12 +39,21 @@ def get_event_detail(id: str):
 
     details_object['event_details'] = event_details
 
+    # get coordinates
+    pattern = re.compile( r"https://maps.google.de/maps")
+    map_links = soup.find_all('a', href=pattern)
+    if len(map_links) > 0:
+        coordinates_pattern = r"q=([-+]?\d+\.\d+),([-+]?\d+\.\d+)"
+        match = re.search(coordinates_pattern, map_links[0].get('href'))
+        details_object['gps_latitude'] = match.group(1)
+        details_object['gps_longitude'] = match.group(2)
+
     return details_object
 
 # with open('static/archive.html', mode='r') as htmlfile:
 #     html_content = htmlfile.read()
 
-html_content = requests.get(f"https://partyfax.de/nach-datum/").content
+html_content = requests.get(f"https://partyfax.de/archiv/").content
 
 soup = BeautifulSoup(html_content, 'html.parser')
 
@@ -56,7 +65,6 @@ a_elements = soup.find_all('a', href=pattern)
 
 with open(file="out.csv", mode="a") as out_file:
     writer = csv.DictWriter(f=out_file, fieldnames=field_name)
-    writer.writeheader()
 
     for a in a_elements:
         event_object = {}
@@ -85,7 +93,6 @@ with open(file="out.csv", mode="a") as out_file:
             event_object['location'] = location_td.get_text(strip=True)
         
         # Extract organization
-        
         if len(table_rows) > 1:
             organization_td = table_rows[2]
             event_object['organization'] = organization_td.get_text(strip=True)
@@ -100,8 +107,3 @@ with open(file="out.csv", mode="a") as out_file:
         # if counter == 50:
         #     break
         writer.writerow(event_object)
-
-
-
-    
-    
